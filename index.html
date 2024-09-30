@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Annotation</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2 class="text-center">Text Annotation Tool</h2>
+        
+        <!-- User selection screen -->
+        <div id="userSelection">
+            <h4>Select User</h4>
+            <ul id="userList" class="list-group"></ul>
+        </div>
+        
+        <!-- Annotation screen (hidden initially) -->
+        <div id="annotationScreen" style="display: none;">
+            <h4 id="currentUser"></h4>
+            <div id="textContainer" class="mt-3"></div>
+            <button class="btn btn-success mt-3" onclick="annotateText('Yes')">Yes</button>
+            <button class="btn btn-danger mt-3" onclick="annotateText('No')">No</button>
+            <button class="btn btn-light mt-3" onclick="annotateText('')">Skip</button>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = '';
+        let texts = [];
+        let currentTextIndex = 0;
+
+        // Fetch users from the backend
+        async function fetchUsers() {
+            const response = await fetch('http://127.0.0.1:5000/users');
+            const result = await response.json();
+            populateUserList(result.users);
+        }
+
+        // Populate user list
+        function populateUserList(users) {
+            const userList = document.getElementById('userList');
+            userList.innerHTML = '';
+            users.forEach(user => {
+                const listItem = document.createElement('li');
+                listItem.className = 'list-group-item';
+                listItem.textContent = user;
+                listItem.onclick = () => selectUser(user);
+                userList.appendChild(listItem);
+            });
+        }
+
+        // Handle user selection
+        function selectUser(user) {
+            currentUser = user;
+            document.getElementById('currentUser').textContent = `Annotating as: ${currentUser}`;
+            document.getElementById('userSelection').style.display = 'none';
+            document.getElementById('annotationScreen').style.display = 'block';
+            fetchTextsForUser(user);
+        }
+
+        // Fetch texts for the selected user
+        async function fetchTextsForUser(user) {
+            const response = await fetch(`http://127.0.0.1:5000/texts/${user}`);
+            const result = await response.json();
+            texts = result.texts;
+            console.log(texts)
+            currentTextIndex = 0;
+            displayText();
+        }
+
+        // Display the current text
+        function displayText() {
+            const textContainer = document.getElementById('textContainer');
+            if (currentTextIndex < texts.length) {
+                textContainer.textContent = texts[currentTextIndex].text;
+            } else {
+                textContainer.textContent = 'No more texts to annotate!';
+            }
+        }
+
+        // Annotate the current text with "Yes" or "No"
+        async function annotateText(response) {
+            if (currentTextIndex >= texts.length) return;
+
+            const textId = texts[currentTextIndex]._id;
+
+            await fetch('http://127.0.0.1:5000/annotate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ user: currentUser, text_id: textId, response: response })
+            });
+
+            currentTextIndex++;
+            displayText();
+        }
+
+        // Fetch users when the page loads
+        window.onload = fetchUsers;
+    </script>
+</body>
+</html>
